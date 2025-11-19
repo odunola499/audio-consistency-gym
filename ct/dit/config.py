@@ -18,5 +18,6 @@ class DITModelConfig:
     sigma: int = 0.0
     audio_drop_prob: float = 0.3
     cond_drop_prob: float = 0.2
-    frac_lengths_mask:Tuple[float] = (0.1, 0.7)
+    frac_lengths_mask: Tuple[float] = (0.1, 0.7)
     vae_hf_url: str = "odunola/vibevoice_vae_weights"
+    max_duration:int = 4096

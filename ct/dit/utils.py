@@ -13,6 +13,7 @@ from ct.tokenizer.audio.model import (
 from huggingface_hub import hf_hub_download
 from safetensors.torch import load_file
 
+
 def lens_to_mask(t: Tensor, length: Optional[int] = None):
     if not length:
         length = t.amax()
@@ -34,8 +35,8 @@ def mask_from_frac_lengths(seq_len, frac_lengths: Tensor):
     rand = torch.rand_like(frac_lengths)
     start = (max_start * rand).log().clamp(min=0)
     end = start + lengths
-    print('start',start)
-    print('end',end)
+    print("start", start)
+    print("end", end)
     return mask_from_start_end_indices(seq_len, start, end)
 
 

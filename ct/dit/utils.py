@@ -100,14 +100,14 @@ def load_vae_models(repo_id="odunola/vibevoice_vae_weights"):
     acoustic_model = AcousticTokenizerModel(acoustic_config)
     semantic_model = SemanticTokenizerModel(semantic_config)
 
-    # acoustic_path = hf_hub_download(repo_id=repo_id, filename="acoustic.safetensors")
-    # semantic_path = hf_hub_download(repo_id=repo_id, filename="semantic.safetensors")
+    acoustic_path = hf_hub_download(repo_id=repo_id, filename="acoustic.safetensors")
+    semantic_path = hf_hub_download(repo_id=repo_id, filename="semantic.safetensors")
 
-    # weights = load_file(acoustic_path)
-    # acoustic_model.load_state_dict(weights)
+    weights = load_file(acoustic_path)
+    acoustic_model.load_state_dict(weights)
 
-    # weights = load_file(semantic_path)
-    # semantic_model.load_state_dict(weights)
+    weights = load_file(semantic_path)
+    semantic_model.load_state_dict(weights)
     return acoustic_model, semantic_model
 
 

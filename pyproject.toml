@@ -16,7 +16,8 @@ dependencies = [
     "wandb",
     "ema-pytorch",
     "random-word",
-    "comet-ml"
+    "comet-ml",
+    "einops"
 ]
 
 [tool.setuptools.packages.find]

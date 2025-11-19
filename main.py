@@ -5,13 +5,14 @@ import torch
 from ct.trainers.cfm_trainer import TrainModule, train_model
 from ct.data.dataset import get_loader
 
+print('imported loaders')
 
 config = DITModelConfig()
 tokenizer = CharTokenizer()
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-loader = get_loader(batch_size = 1)
+loader = get_loader(batch_size = 4)
 train_module = TrainModule(
     config, loader
 )

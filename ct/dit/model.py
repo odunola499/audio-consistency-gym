@@ -1,24 +1,27 @@
 import random
-from typing import Optional, Union, List
+from typing import List, Optional, Union
+
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
 
+from ct.dit.block import SemanticConnector
 from ct.dit.config import DITModelConfig
 from ct.dit.modules import DiT
-from ct.dit.block import SemanticConnector
 from ct.dit.utils import (
-    load_vae_models,
-    lens_to_mask,
-    mask_from_frac_lengths,
     get_epss_timesteps,
+    lens_to_mask,
+    load_vae_models,
     manual_euler,
+    mask_from_frac_lengths,
 )
 from ct.tokenizer.text.char_tokenizer import CharTokenizer
 
 
 class ConditionalFlowMatching(nn.Module):
-    def __init__(self, config: DITModelConfig, tokenizer: CharTokenizer):
+    def __init__(
+        self, config: DITModelConfig, tokenizer: Optional[CharTokenizer] = None
+    ):
         super().__init__()
 
         self.transformer = DiT(
@@ -37,9 +40,14 @@ class ConditionalFlowMatching(nn.Module):
         self.frac_lengths_mask = config.frac_lengths_mask
         self.audio_drop_prob = config.audio_drop_prob
         self.cond_drop_prob = config.cond_drop_prob
-        self.tokenizer = CharTokenizer()
+        if not tokenizer:
+            self.tokenizer = CharTokenizer()
+        else:
+            self.tokenizer = tokenizer
 
-        self.acoustic_model, self.semantic_model = load_vae_models(repo_id = config.vae_hf_url)
+        self.acoustic_model, self.semantic_model = load_vae_models(
+            repo_id=config.vae_hf_url
+        )
         self.acoustic_model.requires_grad_(False)
         self.semantic_model.requires_grad_(False)
 
@@ -74,12 +82,13 @@ class ConditionalFlowMatching(nn.Module):
         use_epss=True,
     ):
         semantics, acoustics = self.get_latents(condition)
+        semantics = self.semantic_connector(semantics)
         condition = semantics + acoustics
         batch, cond_seq_len = condition.shape[:2]
         device = condition.device
 
         lens = torch.full((batch,), cond_seq_len, device=device, dtype=torch.long)
-        if isinstance(text, list):
+        if not isinstance(text, torch.Tensor):
             text, attn_mask = self.tokenizer(text)
             text = text.to(device, dtype=torch.long)
         cond_mask = lens_to_mask(lens)
@@ -88,7 +97,7 @@ class ConditionalFlowMatching(nn.Module):
             duration = torch.full((batch,), duration, device=device, dtype=torch.long)
 
         duration = torch.maximum(
-            torch.maximum((text != -1).sum(dim=-1), lens) + 1, duration
+            torch.maximum((text != 0).sum(dim=-1), lens) + 1, duration
         )
         duration = duration.clamp(max=self.config.max_duration)
         max_duration = duration.amax()
@@ -105,6 +114,8 @@ class ConditionalFlowMatching(nn.Module):
             mask = None
 
         def fn(t, x):
+            print(t)
+            print(f"t: {t.shape}")
             if cfg_strength < 1e-5:
                 pred = self.transformer(
                     x=x,
@@ -119,8 +130,8 @@ class ConditionalFlowMatching(nn.Module):
                 return pred
 
             pred_cfg = self.transformer(
-                x=x,
-                cond=step_cond,
+                noised_input=x,
+                masked_input=step_cond,
                 text=text,
                 time=t,
                 mask=mask,
@@ -134,7 +145,7 @@ class ConditionalFlowMatching(nn.Module):
         for dur in duration:
             y0.append(
                 torch.randn(
-                    dur, self.num_channels, device=self.device, dtype=step_cond.dtype
+                    dur, self.config.vae_dim, device=self.device, dtype=step_cond.dtype
                 )
             )
         y0 = torch.nn.utils.rnn.pad_sequence(y0, padding_value=0, batch_first=True)
@@ -183,12 +194,11 @@ class ConditionalFlowMatching(nn.Module):
 
         batch_size, seq_len = acoustic_latents.shape[:2]
 
-        if isinstance(text[0], str):
-            text, attn_mask = self.tokenizer(text)
+        if not isinstance(text, torch.Tensor):
+            text, _ = self.tokenizer(text)
             text = text.to(device, dtype=torch.long)
-            attn_mask = attn_mask.to(device, dtype=torch.long)
 
-        lens = torch.full((batch_size,), seq_len, device=device)
+        lens = torch.full((batch_size,), seq_len, device=device, dtype=torch.long)
         mask = lens_to_mask(lens, length=seq_len)
 
         frac_lengths = torch.empty(
@@ -206,11 +216,13 @@ class ConditionalFlowMatching(nn.Module):
         x1 = cond + acoustic_segment
 
         x0 = torch.randn_like(x1)
-        t = torch.rand((batch_size,), dtype=dtype, device=device)[..., None, None]
+        time = torch.rand((batch_size,), dtype=dtype, device=device)
+        t = time.unsqueeze(-1).unsqueeze(-1)
         x_t = (1 - t) * x0 + t * x1
         flow = x1 - x0
 
-        drop_audio_cond = random.random() < self.audio_drop_prob
+        drop_audio_cond = torch.rand(1, device=device).item() < self.audio_drop_prob
+
         if random.random() < self.cond_drop_prob:
             drop_audio_cond = True
             drop_text = True
@@ -233,19 +245,26 @@ class ConditionalFlowMatching(nn.Module):
 
 
 if __name__ == "__main__":
-    batch_size = 4
-    seq_len = 15
-    frac_lengths_mask = (0.1, 0.7)
-    embed_dim = 16
-    x1 = torch.randn((batch_size, seq_len, embed_dim))
+    import torch
 
-    lens = torch.full((batch_size,), seq_len)
-    mask = lens_to_mask(lens, seq_len)
-    frac_lengths = torch.zeros((batch_size,)).float().uniform_(*frac_lengths_mask)
-    rand_span_mask = mask_from_frac_lengths(lens, frac_lengths)
+    from ct.dit.config import DITModelConfig
+    from ct.tokenizer.text.char_tokenizer import CharTokenizer
 
-    rand_span_mask &= mask
+    config = DITModelConfig()
+    tokenizer = CharTokenizer()
 
-    print(rand_span_mask[0])
-    inp = torch.where(rand_span_mask[..., None], torch.zeros_like(x1), x1)
-    print(inp[0])
+    text = ["my name is odun"] * 2
+    acoustic_latents = torch.randn(2, 75, 64)
+    semantic_latents = torch.randn(2, 75, 128)
+    model = ConditionalFlowMatching(config, tokenizer)
+
+    output = model(
+        text=text, acoustic_latents=acoustic_latents, semantic_latents=semantic_latents
+    )
+    print(output)
+
+    condition = torch.randn(1, 1, 5000)
+    duration = 10
+    text = ["my name is odun. I am a boy"]
+    out, trajectory = model.sample(condition=condition, text=text, duration=duration)
+    print(out)

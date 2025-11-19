@@ -57,7 +57,7 @@ class TextEmbedding(nn.Module):
         super().__init__()
         self.precompute_max_pos = 4096
 
-        self.text_embed = nn.Embedding(vocab_size + 1, dim)
+        self.text_embed = nn.Embedding(vocab_size + 2, dim)
         self.pos_embed = nn.Embedding(self.precompute_max_pos, dim)
         self.mask_padding = mask_padding
 
@@ -141,7 +141,7 @@ if __name__ == "__main__":
     from tokenizer.text.char_tokenizer import CharTokenizer
 
     tokenizer = CharTokenizer()
-    texts = ["my name is odunola", "I am a boy."]
+    texts = ["my name is odun"] * 2
     input_ids, attn_mask = tokenizer(texts)
 
     embed = TextEmbedding(vocab_size=tokenizer.vocab_size, dim=8)

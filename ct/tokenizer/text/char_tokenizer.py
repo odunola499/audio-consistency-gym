@@ -99,6 +99,8 @@ class CharTokenizer:
 if __name__ == "__main__":
     tokenizer = CharTokenizer()
     texts = ["my name is odunola", "I am a boy."]
+    output, _ = tokenizer(texts)
+    print(output.shape)
     print(tokenizer(texts))
     print(tokenizer.unk_id)
     print(tokenizer.vocab_size)

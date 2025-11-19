@@ -1,9 +1,10 @@
 from typing import Literal
 
 import torch
-from ct.dit.utils import apply_rotary_pos_emb
 from torch import nn
 from torch.nn import functional as F
+
+from ct.dit.utils import apply_rotary_pos_emb
 
 try:
     from flash_attn import flash_attn_func, flash_attn_varlen_func
@@ -21,10 +22,10 @@ class AdaLayerNorm(nn.Module):
         self.linear = nn.Linear(dim, dim * 6)
         self.norm = nn.LayerNorm(dim, elementwise_affine=False, eps=1e-6)
 
-    def forward(self, x, emb=None):
+    def forward(self, x, emb):
         emb = self.linear(self.silu(emb))
         shift_msa, scale_msa, gate_msa, shift_mlp, scale_mlp, gate_mlp = torch.chunk(
-            emb, 6, dim=1
+            emb, 6, dim=-1
         )
 
         x = self.norm(x) * (1 + scale_msa[:, None]) + shift_msa[:, None]

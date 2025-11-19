@@ -8,14 +8,19 @@ from ct.dit.text import TextEmbedding
 from ct.dit.utils import RotaryEmbedding
 
 
-def sinusoids(x, dim=256, scale=1000):
-    device = x.device
-    half_dim = dim // 2
-    emb = math.log(10000) / (half_dim - 1)
-    emb = torch.exp(torch.arange(half_dim, device=device).float() * -emb)
-    emb = scale * x.unsqueeze(1) * emb.unsqueeze(0)
-    emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
-    return emb
+class SinusPositionEmbedding(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.dim = dim
+
+    def forward(self, x, scale=1000):
+        device = x.device
+        half_dim = self.dim // 2
+        emb = math.log(10000) / (half_dim - 1)
+        emb = torch.exp(torch.arange(half_dim, device=device).float() * -emb)
+        emb = scale * x.unsqueeze(1) * emb.unsqueeze(0)
+        emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
+        return emb
 
 
 class ConvPositionEmbedding(nn.Module):
@@ -42,12 +47,19 @@ class ConvPositionEmbedding(nn.Module):
         return out
 
 
-class TimeStepEmbedding(nn.Module):
+class TimestepEmbedding(nn.Module):
     def __init__(self, dim, freq_embed_dim=256):
         super().__init__()
-        mlp = nn.Sequential(
+        self.time_embed = SinusPositionEmbedding(freq_embed_dim)
+        self.time_mlp = nn.Sequential(
             nn.Linear(freq_embed_dim, dim), nn.SiLU(), nn.Linear(dim, dim)
         )
+
+    def forward(self, timestep):
+        time_hidden = self.time_embed(timestep).to(dtype=timestep.dtype)
+        time_hidden = time_hidden.squeeze(1).squeeze(1)
+        time = self.time_mlp(time_hidden)
+        return time
 
 
 class InputEmbedding(nn.Module):
@@ -82,9 +94,7 @@ class DiT(nn.Module):
         checkpoint_activations=True,
     ):
         super().__init__()
-        self.time_embed = nn.Sequential(
-            nn.Linear(256, dim), nn.SiLU(), nn.Linear(dim, dim)
-        )
+        self.time_embed = TimestepEmbedding(dim)
         self.text_embed = TextEmbedding(
             vocab_size,
             text_dim,
@@ -179,13 +189,6 @@ class DiT(nn.Module):
     def clear_cache(self):
         self.text_cond, self.text_uncond = None, None
 
-    def embed_time(self, time: Tensor, batch: int):
-        if time.ndim == 0:
-            time = time.repeat(batch)
-        time = sinusoids(time)
-        time = self.time_embed(time)
-        return time
-
     def forward(
         self,
         noised_input: Tensor,
@@ -199,7 +202,10 @@ class DiT(nn.Module):
         cache: bool = False,
     ):
         batch, seq_len = noised_input.shape[:2]
-        time = self.embed_time(time, batch)
+        if time.ndim == 0:
+            time = time.repeat(batch)[..., None, None]
+
+        time = self.time_embed(time)
         if cfg_infer:
             x_cond = self.get_input_embed(
                 noised_input,
@@ -220,7 +226,7 @@ class DiT(nn.Module):
                 audio_mask=mask,
             )
             x = torch.cat((x_cond, x_uncond), dim=0)
-            t = torch.cat((time, time), dim=0)
+            time = torch.cat((time, time), dim=0)
             mask = torch.concat((mask, mask), dim=0) if mask is not None else None
         else:
             x = self.get_input_embed(
@@ -238,12 +244,12 @@ class DiT(nn.Module):
         for block in self.blocks:
             if self.checkpoint_activations:
                 x = torch.utils.checkpoint.checkpoint(
-                    self.ckpt_wrapper(block), x, t, mask, rope, use_reentrant=False
+                    self.ckpt_wrapper(block), x, time, mask, rope, use_reentrant=False
                 )
             else:
-                x = block(x, t, mask, rope)
+                x = block(x, time, mask, rope)
 
-        x = self.norm_out(x, t)
+        x = self.norm_out(x, time)
         output = self.proj_out(x)
 
         return output

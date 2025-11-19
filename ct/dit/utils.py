@@ -2,6 +2,8 @@ from typing import Optional
 
 import torch
 from einops import rearrange
+from huggingface_hub import hf_hub_download
+from safetensors.torch import load_file
 from torch import Tensor, nn
 
 from ct.tokenizer.audio.model import (
@@ -10,8 +12,6 @@ from ct.tokenizer.audio.model import (
     SemanticTokenizerConfig,
     SemanticTokenizerModel,
 )
-from huggingface_hub import hf_hub_download
-from safetensors.torch import load_file
 
 
 def lens_to_mask(t: Tensor, length: Optional[int] = None):
@@ -35,8 +35,6 @@ def mask_from_frac_lengths(seq_len, frac_lengths: Tensor):
     rand = torch.rand_like(frac_lengths)
     start = (max_start * rand).log().clamp(min=0)
     end = start + lengths
-    print("start", start)
-    print("end", end)
     return mask_from_start_end_indices(seq_len, start, end)
 
 
@@ -102,14 +100,14 @@ def load_vae_models(repo_id="odunola/vibevoice_vae_weights"):
     acoustic_model = AcousticTokenizerModel(acoustic_config)
     semantic_model = SemanticTokenizerModel(semantic_config)
 
-    acoustic_path = hf_hub_download(repo_id=repo_id, filename="acoustic.safetensors")
-    semantic_path = hf_hub_download(repo_id=repo_id, filename="semantic.safetensors")
+    # acoustic_path = hf_hub_download(repo_id=repo_id, filename="acoustic.safetensors")
+    # semantic_path = hf_hub_download(repo_id=repo_id, filename="semantic.safetensors")
 
-    weights = load_file(acoustic_path)
-    acoustic_model.load_state_dict(weights)
+    # weights = load_file(acoustic_path)
+    # acoustic_model.load_state_dict(weights)
 
-    weights = load_file(semantic_path)
-    semantic_model.load_state_dict(weights)
+    # weights = load_file(semantic_path)
+    # semantic_model.load_state_dict(weights)
     return acoustic_model, semantic_model
 
 

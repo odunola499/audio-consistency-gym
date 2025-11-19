@@ -4,14 +4,14 @@ from typing import Dict, Literal, Optional, Tuple
 
 @dataclass
 class DITModelConfig:
-    num_layers: int = 2
-    num_heads: int = 2
-    head_dim: int = 8
-    embed_dim: int = 16
+    num_layers: int = 8
+    num_heads: int = 8
+    head_dim: int = 64
+    embed_dim: int = 512
     dropout: int = 0.1
     ff_mult: int = 4
-    text_dim: int = 16
-    conv_layers: int = 2
+    text_dim: int = 384
+    conv_layers: int = 4
     vocab_size: int = 100
     vae_dim: int = 64
     checkpoint_activations: bool = False
@@ -36,7 +36,7 @@ class DITModelConfig:
     max_grad_norm: int = 1.0
     noise_scheduler: Optional[str] = None
     log_to: Literal["wandb", "csv"] = "comet"
-    wandb_project: str = "F5_TTS"
+    wandb_project: str = "Audio-Consistency"
     wandb_run_name: Optional[str] = None
     log_samples: bool = True
     optimizer: Literal["bnb", "adamw"] = "bnb"

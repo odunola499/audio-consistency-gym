@@ -103,8 +103,8 @@ class TrainModule(pl.LightningModule):
         self.ema_model.update()
 
 
-def train_model(config: DITModelConfig, train_module: TrainModule):
-    config = config
+def train_model(train_module: TrainModule):
+    config = train_module.config
     train_module = train_module
     logger = CometLogger(
             project_name=config.wandb_project,

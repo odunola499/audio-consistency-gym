@@ -1,6 +1,20 @@
-def main():
-    print("Hello from audio-consistency-models!")
+from ct.dit.model import ConditionalFlowMatching
+from ct.dit.config import DITModelConfig
+from ct.tokenizer.text.char_tokenizer import CharTokenizer
+import torch
+from ct.trainers.cfm_trainer import TrainModule, train_model
+from ct.data.dataset import get_loader
 
 
-if __name__ == "__main__":
-    main()
+config = DITModelConfig()
+tokenizer = CharTokenizer()
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+
+loader = get_loader(batch_size = 1)
+train_module = TrainModule(
+    config, loader
+)
+
+train_model(train_module)
+

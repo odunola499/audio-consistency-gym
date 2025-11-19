@@ -55,7 +55,7 @@ class ConditionalFlowMatching(nn.Module):
     @torch.no_grad()
     def get_latents(self, audio: Tensor):
         _, semantics = self.semantic_model(audio, debug=False)
-        encoder_output = self.acoustic_model(audio, debug=False)
+        encoder_output = self.acoustic_model.encode(audio, debug=False)
         acoustics, _ = self.acoustic_model.sampling(encoder_output)
         return semantics, acoustics
 
@@ -183,7 +183,7 @@ class ConditionalFlowMatching(nn.Module):
 
         batch_size, seq_len = acoustic_latents.shape[:2]
 
-        if isinstance(text, list):
+        if isinstance(text[0], str):
             text, attn_mask = self.tokenizer(text)
             text = text.to(device, dtype=torch.long)
             attn_mask = attn_mask.to(device, dtype=torch.long)
@@ -218,8 +218,8 @@ class ConditionalFlowMatching(nn.Module):
             drop_text = False
 
         pred = self.transformer(
-            x=x_t,
-            cond=cond,
+            noised_input=x_t,
+            masked_input=cond,
             text=text,
             time=t,
             drop_audio_cond=drop_audio_cond,

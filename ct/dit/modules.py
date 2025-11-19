@@ -235,7 +235,7 @@ class DiT(nn.Module):
 
         rope = self.rotary_embed.forward_from_seq_len(seq_len)
 
-        for block in self.transformer_blocks:
+        for block in self.blocks:
             if self.checkpoint_activations:
                 x = torch.utils.checkpoint.checkpoint(
                     self.ckpt_wrapper(block), x, t, mask, rope, use_reentrant=False

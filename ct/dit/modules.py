@@ -118,11 +118,10 @@ class DiT(nn.Module):
         self.checkpoint_activations = checkpoint_activations
 
     def initialize_weights(self):
-        for block in self.transformer_blocks:
+        for block in self.blocks:
             nn.init.constant_(block.attn_norm.linear.weight, 0)
             nn.init.constant_(block.attn_norm.linear.bias, 0)
 
-            # Zero-out output layers:
         nn.init.constant_(self.norm_out.linear.weight, 0)
         nn.init.constant_(self.norm_out.linear.bias, 0)
         nn.init.constant_(self.proj_out.weight, 0)

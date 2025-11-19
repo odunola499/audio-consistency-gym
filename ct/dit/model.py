@@ -7,7 +7,13 @@ from torch.nn import functional as F
 from ct.dit.config import DITModelConfig
 from ct.dit.modules import DiT
 from ct.dit.block import SemanticConnector
-from ct.dit.utils import load_vae_models, lens_to_mask, mask_from_frac_lengths, get_epss_timesteps, manual_euler
+from ct.dit.utils import (
+    load_vae_models,
+    lens_to_mask,
+    mask_from_frac_lengths,
+    get_epss_timesteps,
+    manual_euler,
+)
 from ct.tokenizer.text.char_tokenizer import CharTokenizer
 
 
@@ -53,20 +59,19 @@ class ConditionalFlowMatching(nn.Module):
         acoustics, _ = self.acoustic_model.sampling(encoder_output)
         return semantics, acoustics
 
-    def latent_to_audio(self, acoustic_latents:torch.Tensor):
+    def latent_to_audio(self, acoustic_latents: torch.Tensor):
         return self.acoustic_model.decode(acoustic_latents)
 
     @torch.no_grad()
     def sample(
-            self,
-            condition:torch.Tensor,
-            text:Union[torch.Tensor, List[str]],
-            duration,
-            steps = 32,
-            cfg_strength = 1.0,
-            sway_sampling_coef = None,
-            use_epss = True
-
+        self,
+        condition: torch.Tensor,
+        text: Union[torch.Tensor, List[str]],
+        duration,
+        steps=32,
+        cfg_strength=1.0,
+        sway_sampling_coef=None,
+        use_epss=True,
     ):
         semantics, acoustics = self.get_latents(condition)
         condition = semantics + acoustics
@@ -88,11 +93,11 @@ class ConditionalFlowMatching(nn.Module):
         duration = duration.clamp(max=self.config.max_duration)
         max_duration = duration.amax()
         condition = F.pad(condition, (0, 0, 0, max_duration - cond_seq_len), value=0.0)
-        cond_mask = F.pad(cond_mask, (0, max_duration - cond_mask.shape[-1]), value=False)
-        cond_mask = cond_mask.unsqueeze(-1)
-        step_cond = torch.where(
-            cond_mask, condition, torch.zeros_like(condition)
+        cond_mask = F.pad(
+            cond_mask, (0, max_duration - cond_mask.shape[-1]), value=False
         )
+        cond_mask = cond_mask.unsqueeze(-1)
+        step_cond = torch.where(cond_mask, condition, torch.zeros_like(condition))
 
         if batch > 1:
             mask = lens_to_mask(duration)
@@ -127,16 +132,21 @@ class ConditionalFlowMatching(nn.Module):
 
         y0 = []
         for dur in duration:
-            y0.append(torch.randn(dur, self.num_channels, device=self.device, dtype=step_cond.dtype))
+            y0.append(
+                torch.randn(
+                    dur, self.num_channels, device=self.device, dtype=step_cond.dtype
+                )
+            )
         y0 = torch.nn.utils.rnn.pad_sequence(y0, padding_value=0, batch_first=True)
 
         t_start = 0
 
-
-        if t_start == 0 and use_epss: 
+        if t_start == 0 and use_epss:
             t = get_epss_timesteps(steps, device=self.device, dtype=step_cond.dtype)
         else:
-            t = torch.linspace(t_start, 1, steps + 1, device=self.device, dtype=step_cond.dtype)
+            t = torch.linspace(
+                t_start, 1, steps + 1, device=self.device, dtype=step_cond.dtype
+            )
         if sway_sampling_coef is not None:
             t = t + sway_sampling_coef * (torch.cos(torch.pi / 2 * t) - 1 + t)
 
@@ -148,7 +158,6 @@ class ConditionalFlowMatching(nn.Module):
         out = torch.where(cond_mask, condition, out)
         out = self.latent_to_audio(out)
         return out, trajectory
-
 
     def forward(
         self,

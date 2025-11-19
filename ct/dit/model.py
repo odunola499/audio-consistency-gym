@@ -39,7 +39,7 @@ class ConditionalFlowMatching(nn.Module):
         self.cond_drop_prob = config.cond_drop_prob
         self.tokenizer = CharTokenizer()
 
-        self.acoustic_model, self.semantic_model = load_vae_models(config.vae_hf_url)
+        self.acoustic_model, self.semantic_model = load_vae_models(repo_id = config.vae_hf_url)
         self.acoustic_model.requires_grad_(False)
         self.semantic_model.requires_grad_(False)
 

@@ -119,13 +119,24 @@ class DiT(nn.Module):
 
     def initialize_weights(self):
         for block in self.blocks:
-            nn.init.constant_(block.attn_norm.linear.weight, 0)
-            nn.init.constant_(block.attn_norm.linear.bias, 0)
+            nn.init.xavier_uniform_(block.attn.to_q.weight)
+            nn.init.xavier_uniform_(block.attn.to_k.weight)
+            nn.init.xavier_uniform_(block.attn.to_v.weight)
+            nn.init.zeros_(block.attn.to_q.bias)
+            nn.init.zeros_(block.attn.to_k.bias)
+            nn.init.zeros_(block.attn.to_v.bias)
 
-        nn.init.constant_(self.norm_out.linear.weight, 0)
-        nn.init.constant_(self.norm_out.linear.bias, 0)
-        nn.init.constant_(self.proj_out.weight, 0)
-        nn.init.constant_(self.proj_out.bias, 0)
+            nn.init.constant_(block.attn.to_out.weight, 0.0)
+            nn.init.constant_(block.attn.to_out.bias, 0.0)
+
+            for layer in block.ffn.ff:
+                if isinstance(layer, nn.Linear):
+                    nn.init.xavier_uniform_(layer.weight)
+                    nn.init.zeros_(layer.bias)
+
+            if hasattr(block.norm, "linear"):
+                nn.init.xavier_uniform_(block.norm.linear.weight)
+                nn.init.zeros_(block.norm.linear.bias)
 
     def ckpt_wrapper(self, module):
         # https://github.com/chuanyangjin/fast-DiT/blob/main/models.py

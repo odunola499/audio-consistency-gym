@@ -95,12 +95,12 @@ def manual_euler(func, x0: Tensor, t: Tensor):
     return xs
 
 
-def load_vae_models(device, repo_id="odunola/vibevoice_vae_weights"):
+def load_vae_models(repo_id="odunola/vibevoice_vae_weights"):
     acoustic_config = AcousticTokenizerConfig()
     semantic_config = SemanticTokenizerConfig()
 
-    acoustic_model = AcousticTokenizerModel(acoustic_config).to(device)
-    semantic_model = SemanticTokenizerModel(semantic_config).to(device)
+    acoustic_model = AcousticTokenizerModel(acoustic_config)
+    semantic_model = SemanticTokenizerModel(semantic_config)
 
     acoustic_path = hf_hub_download(repo_id=repo_id, filename="acoustic.safetensors")
     semantic_path = hf_hub_download(repo_id=repo_id, filename="semantic.safetensors")

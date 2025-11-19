@@ -1,15 +1,12 @@
 import os
 import random
 from datetime import datetime
-from typing import Optional
 
 import lightning as pl
 import torch
-import wandb
 from ema_pytorch import EMA
-from lightning.pytorch.callbacks import LearningRateMonitor, ModelCheckpoint
+from lightning.pytorch.callbacks import LearningRateMonitor
 from lightning.pytorch.loggers import CometLogger
-from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from random_word import RandomWords
 from safetensors.torch import save_file
 from torch.optim import AdamW
@@ -74,14 +71,11 @@ class TrainModule(pl.LightningModule):
         print(f"Saved checkpoint: {filename}")
 
     def training_step(self, batch):
-        mel_spec = batch["mel"].permute(0, 2, 1)
-        mel_lengths = batch["mel_lengths"]
-        text_inputs = batch["text"]
+        audio = batch['audio']
+        texts = batch['text']
 
-        loss, cond, pred = self.model(
-            mel_spec,
-            text=text_inputs,
-            lens=mel_lengths,
+        loss, _, _ = self.model(
+            text= texts, audio = audio
         )
         self.log("train/loss", loss, prog_bar=True, sync_dist=True)
 
@@ -106,20 +100,20 @@ class TrainModule(pl.LightningModule):
 
     def optimizer_zero_grad(self, epoch: int, batch_idx: int, optimizer) -> None:
         optimizer.zero_grad()
-        # if self.global_rank == 0:
         self.ema_model.update()
 
 
 def train_model(config: DITModelConfig, train_module: TrainModule):
     config = config
     train_module = train_module
-
-    callbacks = [
-        LearningRateMonitor(logging_interval="step"),
-        CometLogger(
+    logger = CometLogger(
             project_name=config.wandb_project,
             experiment_name=config.wandb_run_name or run_name,
-        ),
+        )
+
+    callbacks = [
+        LearningRateMonitor(logging_interval="step")
+
     ]
 
     trainer = pl.Trainer(
@@ -135,7 +129,6 @@ def train_model(config: DITModelConfig, train_module: TrainModule):
         precision="bf16-mixed" if torch.cuda.is_available() else 32,
         enable_progress_bar=True,
         enable_model_summary=True,
-        num_sanity_val_steps=0 if config.val_interval else None,
     )
     trainer.fit(
         train_module,

@@ -25,8 +25,8 @@ class DITModelConfig:
     lr: float = 1e-3
     epochs: Optional[int] = None
     learning_rate: float = 1e-4
-    max_steps: Optional[int] = 20000
-    warmup_steps: int = 2000
+    max_steps: Optional[int] = 2000
+    warmup_steps: int = 500
     keep_last_n_checkpoints: int = 2
     ckpt_dir: str = "checkpoints"
     pretrained_ckpt: Optional[str] = None
@@ -43,5 +43,5 @@ class DITModelConfig:
     lr_scheduler: Literal["cosine_warmup", "linear_lr", "sequential_lr"] = (
         "cosine_warmup"
     )
-    save_interval: Optional[int] = 1000
+    save_interval: Optional[int] = 100
     val_interval: Optional[int] = 1000

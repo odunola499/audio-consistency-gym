@@ -16,6 +16,12 @@ dependencies = [
     "wandb",
 ]
 
+[project.optional-dependencies]
+dev = ["pytest", "black", "isort", "flake8", "mypy"]
+training = ["wandb",  "datasets"]
+
+[project.urls]
+Source = "https://github.com/odunola499/audio-consistency-gym"
 
 [tool.black]
 line-length = 88
@@ -24,3 +30,6 @@ target-version = ["py311"]
 [tool.isort]
 profile = "black"
 line_length = 88
+
+[tool.setuptools]
+packages = ["ct"]
